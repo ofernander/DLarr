@@ -1,0 +1,48 @@
+# DLarr — Docker build context ignores
+#
+# Keeps the build context lean and prevents host-side artifacts (node_modules,
+# local DB/logs, git metadata, reference repo) from landing in the image.
+
+# Node
+node_modules
+backend/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data (local testing)
+data
+config
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Logs
+logs
+*.log
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Reference + docs (not needed in the image)
+MISC
+docs
+
+# Env files (never bake into image)
+.env
+.env.*
+
+# Docker compose (no need to copy into the image)
+docker-compose.yml
+docker-compose.*.yml

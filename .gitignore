@@ -1,0 +1,42 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.node_repl_history
+
+# Runtime data (user's local testing, never committed)
+/data/
+/config/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Logs
+logs/
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# Env files (not used in deploy, but may appear locally)
+.env
+.env.local
+.env.*.local
+
+
+docker-compose.override.yml
+MISC
+docs
