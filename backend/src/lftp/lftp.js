@@ -87,19 +87,13 @@ export class Lftp extends EventEmitter {
     const { host, port, user, password, useKey, keyPath } = this.opts;
     const lftpPath = this.opts.lftpPath ?? 'lftp';
 
-    // Build the args. We connect via sftp:// URL and pass user via -u.
-    // Password auth embeds the password in the user spec the way seedsync did.
-    // Key auth leaves the password empty and relies on ssh-agent / key path
-    // via sftp:connect-program (set further down).
-    const userSpec = useKey ? user : `${user},${password ?? ''}`;
-    const args = [
-      '-p', String(port),
-      '-u', userSpec,
-      `sftp://${host}`,
-    ];
-
-    this._log('debug', `Spawning lftp ${args.join(' ')}`);
-    this.proc = spawn(lftpPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    // Spawn LFTP without connection args. If we put `-u user sftp://host`
+    // on the command line, LFTP attempts to authenticate immediately on
+    // spawn — before we get a chance to set `sftp:connect-program` for
+    // key auth. Starting unconnected lets us configure everything first,
+    // then issue `open` to connect.
+    this._log('debug', `Spawning lftp (unconnected)`);
+    this.proc = spawn(lftpPath, [], { stdio: ['pipe', 'pipe', 'pipe'] });
     this.alive = true;
 
     this.proc.stdout.on('data', (chunk) => this._onStdout(chunk));
@@ -156,6 +150,20 @@ export class Lftp extends EventEmitter {
       if (v === undefined || v === null) continue;
       await this.runCommand(setCommand(k, v));
     }
+
+    // Close any implicit session LFTP may have stashed (e.g. from a prior
+    // `set` that touched connection state), then open explicitly.
+    //
+    // For BOTH auth modes we use `-u user,<password>` form where <password>
+    // is either the real password or an empty string. The empty-string form
+    // is critical for key auth: LFTP will otherwise prompt "Password:" on
+    // stdin and consume our next command (the sentinel `!echo`) as the
+    // password, jamming the protocol. Passing empty password explicitly
+    // dismisses the prompt; LFTP then falls through to sftp:connect-program
+    // which uses our -i <keyPath>.
+    await this.runCommand('close');
+    const pw = useKey ? '' : (password ?? '');
+    await this.runCommand(`open -u ${user},"${pw}" sftp://${host}:${port}`);
 
     this._log('info', `LFTP started and configured (sftp://${host}:${port})`);
   }
