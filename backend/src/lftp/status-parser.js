@@ -89,6 +89,42 @@ function extractQuotedArgs(line) {
 }
 
 /**
+ * Tokenize a command line starting after the given command keyword.
+ * Splits on whitespace. Also strips trailing "-- stats..." suffix that
+ * LFTP appends on status lines (e.g. "-- 955M/2.7G (35%) 97 MiB/s").
+ *
+ * Does NOT handle embedded spaces in paths. The primary quoted-arg
+ * extraction covers that case when LFTP preserves quotes; if LFTP strips
+ * quotes AND the path contains spaces, we'd truncate — known limitation.
+ */
+function tokenizeCommandLine(line, commandKeyword) {
+  const idx = line.indexOf(commandKeyword);
+  if (idx === -1) return [];
+  const rest = line.slice(idx + commandKeyword.length).trim();
+  const beforeStats = rest.split(/\s+--\s+/)[0];
+  return beforeStats.split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Extract the non-flag positional args after a mirror/pget command keyword,
+ * from a bare (unquoted) invocation line. Skips single-dash flags; treats
+ * `-o` as consuming its next token (the pget destination value).
+ */
+function extractBareArgsAfterCommand(line, commandKeyword) {
+  const tokens = tokenizeCommandLine(line, commandKeyword);
+  const args = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.startsWith('-')) {
+      if (t === '-o') i++; // -o consumes the next token as its value
+      continue;
+    }
+    args.push(t);
+  }
+  return args;
+}
+
+/**
  * Split a jobs -v output into job blocks.
  * A job block starts with a line matching /^\s*\[\d+\]/ and continues until
  * the next such line or end of input.
@@ -122,6 +158,14 @@ function parseJobBlock(block) {
   const rest = block.lines.slice(1).join('\n');
   const fullText = block.lines.join('\n');
 
+  // LFTP emits a `[N] queue (sftp://...) -- <speed>` meta-block at the top
+  // of `jobs -v` output while a queue is active. It describes the queue
+  // container, not an individual job — the real job(s) follow in their own
+  // [M] blocks. Detect and skip so we don't treat it as unparsed.
+  if (/^\s*\[\d+\]\s+queue\b/i.test(first)) {
+    return { skip: true };
+  }
+
   // Detect command type and state from the first line
   //   [1] Running: mirror -c "..." "..."
   //   [1] mirror `sftp://...' -- X bytes, Y eta (...)
@@ -147,13 +191,20 @@ function parseJobBlock(block) {
     return null;
   }
 
-  // Try to extract paths. For mirror: first two quoted args are remote/local.
-  // For pget: remote is first quoted arg, local is after "-o".
+  // Try to extract paths. LFTP sometimes echoes our quoted paths back
+  // unquoted in `jobs -v` output (e.g. `mirror -c /a/b /c/d` despite us
+  // sending `mirror -c "/a/b" "/c/d"`). Try quoted first, then fall back
+  // to bare-token parsing of the first line.
   const quoted = extractQuotedArgs(fullText);
   let remotePath = null;
   let localPath = null;
   if (type === 'mirror') {
     [remotePath, localPath] = quoted;
+    if (!remotePath) {
+      const paths = extractBareArgsAfterCommand(first, 'mirror');
+      remotePath = paths[0] ?? null;
+      localPath = paths[1] ?? null;
+    }
   } else if (type === 'pget') {
     remotePath = quoted[0] ?? null;
     // find "-o" then next quoted
@@ -162,6 +213,23 @@ function parseJobBlock(block) {
       const afterO = fullText.slice(oIdx);
       const afterQuoted = extractQuotedArgs(afterO);
       localPath = afterQuoted[0] ?? null;
+    }
+    if (!remotePath) {
+      // Bare-arg pget: `pget -c <remote> -o <local>`
+      const tokens = tokenizeCommandLine(first, 'pget');
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t.startsWith('-')) {
+          if (t === '-o') i++;
+          continue;
+        }
+        remotePath = t;
+        break;
+      }
+      if (!localPath) {
+        const oi = tokens.indexOf('-o');
+        if (oi !== -1 && tokens[oi + 1]) localPath = tokens[oi + 1];
+      }
     }
   }
 
@@ -212,6 +280,7 @@ export function parseJobs(output) {
 
   for (const block of blocks) {
     const parsed = parseJobBlock(block);
+    if (parsed && parsed.skip) continue;
     if (parsed) jobs.push(parsed);
     else unparsed++;
   }

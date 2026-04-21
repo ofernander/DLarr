@@ -32,6 +32,11 @@ import {
 } from './commands.js';
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
+// Status polls can run slow during heavy transfers — LFTP serializes its
+// stdout writes and a large `jobs -v` dump competes with transfer progress
+// output. 10s is too tight for multi-GB transfers. Temporary fix; proper
+// solution is a protocol redesign (see bug tracker: sentinel fragility).
+const STATUS_COMMAND_TIMEOUT_MS = 60_000;
 
 /**
  * LFTP wrapper. Emits:
@@ -46,6 +51,7 @@ export class Lftp extends EventEmitter {
    * @param {string} opts.user
    * @param {string} [opts.password] required if not using key
    * @param {boolean} opts.useKey
+   * @param {string} [opts.keyPath] path to SSH private key, required when useKey=true
    * @param {string} [opts.lftpPath='lftp'] path to lftp binary (for tests)
    * @param {Logger} [opts.logger]
    */
@@ -78,7 +84,7 @@ export class Lftp extends EventEmitter {
   async start(settings = {}) {
     if (this.alive) return;
 
-    const { host, port, user, password, useKey } = this.opts;
+    const { host, port, user, password, useKey, keyPath } = this.opts;
     const lftpPath = this.opts.lftpPath ?? 'lftp';
 
     // Build the args. We connect via sftp:// URL and pass user via -u.
@@ -128,6 +134,24 @@ export class Lftp extends EventEmitter {
       'net:limit-rate':                   settings.LFTP_RATE_LIMIT ?? '0',
     };
 
+    // Key-based auth: tell LFTP's sftp subsystem to use `ssh -i <keyPath>`.
+    // Without this, ssh looks in ~/.ssh/id_* (empty in container) and
+    // falls back to password auth, which we haven't provided → "Password
+    // required" error. StrictHostKeyChecking=no skips the first-connect
+    // host-key prompt since we have no known_hosts in the container.
+    if (useKey) {
+      if (!keyPath) {
+        throw new Error('LFTP useKey=true but no keyPath provided');
+      }
+      const sshArgs = [
+        '-a', '-x',
+        '-i', keyPath,
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+      ].join(' ');
+      bootSettings['sftp:connect-program'] = `"ssh ${sshArgs}"`;
+    }
+
     for (const [k, v] of Object.entries(bootSettings)) {
       if (v === undefined || v === null) continue;
       await this.runCommand(setCommand(k, v));
@@ -168,9 +192,10 @@ export class Lftp extends EventEmitter {
 
   /**
    * Poll `jobs -v` and return the raw output. The parser lives in status-parser.js.
+   * Uses an extended timeout — status polls can run slow during heavy transfers.
    */
   async jobs() {
-    return this.runCommand(jobsCommand());
+    return this.runCommand(jobsCommand(), { timeoutMs: STATUS_COMMAND_TIMEOUT_MS });
   }
 
   /**

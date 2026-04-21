@@ -79,10 +79,10 @@ class Logger {
 
     this._writeEvent(level, msg, ctx);
 
-    // Debug messages are file-only per design §11 — never surface in UI
-    if (level !== 'debug') {
-      this._writeBus(level, msg, ctx, ts);
-    }
+    // Previously debug was bus-gated per design §11. Reversed 2026-04-21:
+    // LOG_LEVEL env is now the single filter; whatever passes shouldLog()
+    // goes everywhere (file, stdout, events table, bus).
+    this._writeBus(level, msg, ctx, ts);
   }
 
   _format(ts, level, msg, ctx) {

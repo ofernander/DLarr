@@ -40,6 +40,9 @@ const SETTINGS_SCHEMA = {
   MAX_RETRIES:                      { type: 'int',    default: 5 },
   ARR_HEALTH_CHECK_INTERVAL_SECS:   { type: 'int',    default: 120 },
   ARR_NOTIFY_MAX_RETRIES:           { type: 'int',    default: 3 },
+
+  // Log retention
+  EVENTS_RETENTION_ROWS:            { type: 'int',    default: 10000 },
 };
 
 const ARR_TYPES = ['RADARR', 'SONARR', 'LIDARR'];

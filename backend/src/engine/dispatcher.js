@@ -44,13 +44,18 @@ function publishFileById(fileId) {
  * @param {object} deps
  * @param {Lftp}   deps.lftp       an active Lftp instance
  * @param {object} deps.sshConfig  SSH config for deleter
+ * @param {function(number): void} [deps.onAfterDelete]  optional callback
+ *   invoked with the file's watch_id after a successful delete_remote or
+ *   delete_local. Used by Engine to trigger forceScan so Pass 4 (tombstone
+ *   purge) runs promptly when both presence bits reach 0.
  */
 export class Dispatcher {
-  constructor({ lftp, sshConfig }) {
+  constructor({ lftp, sshConfig, onAfterDelete }) {
     if (!lftp)       throw new Error('Dispatcher requires lftp');
     if (!sshConfig)  throw new Error('Dispatcher requires sshConfig');
     this.lftp = lftp;
     this.sshConfig = sshConfig;
+    this.onAfterDelete = typeof onAfterDelete === 'function' ? onAfterDelete : null;
   }
 
   /**
@@ -120,6 +125,7 @@ export class Dispatcher {
       { fileId }
     );
     publishFileById(fileId);
+    this._notifyAfterDelete(fileId);
   }
 
   async _deleteLocal(action) {
@@ -135,6 +141,7 @@ export class Dispatcher {
       const db = getDb();
       db.prepare(`UPDATE files SET on_local = 0 WHERE id = ?`).run(fileId);
       publishFileById(fileId);
+      this._notifyAfterDelete(fileId);
       return;
     }
     const st = statSync(localPath);
@@ -150,6 +157,7 @@ export class Dispatcher {
 
     logger.info(`Local delete succeeded for ${localPath}`, { fileId });
     publishFileById(fileId);
+    this._notifyAfterDelete(fileId);
   }
 
   async _stop(action) {
@@ -194,5 +202,20 @@ export class Dispatcher {
       `Dispatcher action "${action.type}" failed (${reason}): ${msg}`,
       { fileId: action.fileId ?? null }
     );
+  }
+
+  /**
+   * Invoke the onAfterDelete callback with the file's watch_id, if set.
+   * Looks up the row at call time because the row may have been updated
+   * between the action and now.
+   */
+  _notifyAfterDelete(fileId) {
+    if (!this.onAfterDelete || !fileId) return;
+    try {
+      const row = getDb().prepare(
+        `SELECT watch_id FROM files WHERE id = ?`
+      ).get(fileId);
+      if (row?.watch_id) this.onAfterDelete(row.watch_id);
+    } catch { /* ignore */ }
   }
 }

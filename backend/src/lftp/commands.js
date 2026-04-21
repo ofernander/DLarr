@@ -38,32 +38,30 @@ export function setCommand(name, value) {
 }
 
 /**
- * Build a `queue 'pget -c "<remote>" -o "<localDir>/"'` for a single file,
- * or `queue 'mirror -c "<remote>" "<localDir>/"'` for a directory.
+ * Build a `queue 'pget -c "<remote>" -o "<parentDir>/"'` for a single file,
+ * or `queue 'mirror -c "<remote>" "<parentDir>/"'` for a directory.
  *
- * Important: both `pget -o` and `mirror`'s target argument expect a
- * DIRECTORY path (with trailing slash), not a file path. Passing a file
- * path here causes LFTP to silently no-op — no error, no transfer.
- * LFTP derives the destination filename from the remote path.
+ * Both LFTP commands take a PARENT DIRECTORY as the destination:
+ *   - pget -o writes the file into the given directory using the remote basename
+ *   - mirror creates a subdirectory named after SRC's basename inside DEST
+ *     and syncs into it
  *
- * For files: localPath is the target file (e.g. /downloads/foo.mkv),
- * so we strip the basename to get the containing directory (/downloads).
+ * Passing a file path to pget -o silently no-ops.
+ * Passing the target path itself to mirror causes double-nesting
+ * (e.g. /downloads/foo/foo/ instead of /downloads/foo/).
  *
- * For dirs: localPath is the target directory (e.g. /downloads/.config),
- * which is what we want — mirror will create it and sync into it.
+ * Solution: strip basename in both cases to get the parent directory.
  *
  * @param {object} opts
  * @param {string} opts.remotePath  absolute remote file/dir path
- * @param {string} opts.localPath   absolute local destination (file path for
- *                                  single file, target dir for mirror)
+ * @param {string} opts.localPath   absolute local target path (file or dir)
  * @param {boolean} opts.isDir      true if mirror, false if pget
  */
 export function queueCommand({ remotePath, localPath, isDir }) {
   const rp = `"${escapePathForLftp(remotePath)}"`;
 
-  const localDir = isDir
-    ? localPath.replace(/\/+$/, '')  // mirror target: the dir itself
-    : dirname(localPath);             // pget target:   containing dir
+  // Both commands want the parent directory as DEST.
+  const localDir = dirname(localPath);
   const lp = `"${escapePathForLftp(localDir)}/"`;
 
   const inner = isDir

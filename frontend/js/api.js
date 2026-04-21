@@ -91,4 +91,10 @@ export const api = {
   fileDeleteLocal:  (id) => POST(`/api/files/${id}/delete-local`),
   fileDeleteRemote: (id) => POST(`/api/files/${id}/delete-remote`),
   fileArrHistory:   (id) => GET(`/api/files/${id}/arr-notifications`),
+
+  // Logs
+  listLogs:         (params) => {
+    const q = new URLSearchParams(params).toString();
+    return GET(`/api/logs${q ? '?' + q : ''}`);
+  },
 };

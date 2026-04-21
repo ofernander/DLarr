@@ -122,13 +122,19 @@ export class Scheduler {
       // watching a large transfer progress through several ticks. Silent at
       // INFO level to avoid spam. Bump LOG_LEVEL=debug to see.
       for (const job of lftpJobs) {
+        // Identify the job by its remote-path basename (filename for pget,
+        // dirname for mirror). localPath is the parent directory for our
+        // commands, so it's the same for every job and useless as a label.
+        const name = job.remotePath
+          ? job.remotePath.replace(/\/+$/, '').split('/').pop()
+          : null;
         const bits = [
-          `${job.type} #${job.id}`,
+          name ?? `${job.type} #${job.id}`,
           job.state,
-          job.localPath ? `→ ${job.localPath}` : null,
           job.progress != null ? `${Math.round(job.progress * 100)}%` : null,
           job.speed != null ? formatSpeed(job.speed) : null,
           job.eta != null ? `eta ${job.eta}s` : null,
+          `(${job.type} #${job.id})`,
         ].filter(Boolean).join(' ');
         logger.debug(`LFTP job: ${bits}`);
       }

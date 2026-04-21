@@ -35,7 +35,7 @@ services:
 
       # Pick one auth mode:
       # - DLARR_SSH_USE_KEY=true
-      # - DLARR_SSH_KEY_PATH=/config/ssh_key    # mount your key into /config
+      # - DLARR_SSH_KEY_PATH=/path/to/custom/key   # mount your key into /config
       # --- or ---
       # - DLARR_SSH_PASSWORD=your_password
 

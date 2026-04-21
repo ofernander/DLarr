@@ -19,12 +19,15 @@ import { Lftp } from '../lftp/lftp.js';
 import { RemoteScanner } from '../remote/scanner.js';
 import { Dispatcher } from './dispatcher.js';
 import { Scheduler } from './scheduler.js';
+import { LocalWatcherManager } from '../local/watcher.js';
 import { HealthChecker } from '../arrs/health.js';
 import { getLogger, logger } from '../logging/logger.js';
 import { get as getSetting, getAll as getAllSettings } from '../config/settings.js';
+import { bus } from '../web/events.js';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
+import { defaultKeyPath } from '../remote/keygen.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,12 +36,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * sourced from settings.
  */
 function buildSshConfig() {
+  const userKeyPath = getSetting('SSH_KEY_PATH');
+  const dataDir = getSetting('DATA_DIR');
+  // User override wins. If unset, fall back to the auto-generated key path.
+  const keyPath = userKeyPath || (dataDir ? defaultKeyPath(dataDir) : null);
   return {
     host:     getSetting('SSH_HOST'),
     port:     getSetting('SSH_PORT'),
     user:     getSetting('SSH_USER'),
     password: getSetting('SSH_PASSWORD'),
-    keyPath:  getSetting('SSH_KEY_PATH'),
+    keyPath,
     useKey:   getSetting('SSH_USE_KEY'),
   };
 }
@@ -68,9 +75,11 @@ export class Engine {
     this.remoteScanner = null;
     this.dispatcher = null;
     this.scheduler = null;
+    this.localWatcher = null;
     this.healthChecker = null;
     this._started = false;
     this._syncStarted = false; // specifically tracks whether LFTP/scheduler are running
+    this._unsubscribeWatchUpdate = null;
   }
 
   async start() {
@@ -100,6 +109,7 @@ export class Engine {
       user:     sshConfig.user,
       password: sshConfig.password,
       useKey:   sshConfig.useKey,
+      keyPath:  sshConfig.keyPath,
       logger:   getLogger(),
     });
 
@@ -120,7 +130,11 @@ export class Engine {
     });
 
     // --- Dispatcher ---
-    this.dispatcher = new Dispatcher({ lftp: this.lftp, sshConfig });
+    this.dispatcher = new Dispatcher({
+      lftp: this.lftp,
+      sshConfig,
+      onAfterDelete: (watchId) => this.forceScan(watchId),
+    });
 
     // --- Scheduler ---
     this.scheduler = new Scheduler({
@@ -131,6 +145,18 @@ export class Engine {
     });
     this.scheduler.start();
 
+    // --- Local watcher ---
+    // Gated on sync being active. Without SSH/scheduler there's nothing
+    // the watcher could do with a forceScan.
+    this.localWatcher = new LocalWatcherManager({
+      forceScan: (watchId) => this.forceScan(watchId),
+    });
+    this.localWatcher.start();
+    this._unsubscribeWatchUpdate = bus.subscribe((event) => {
+      if (event.type !== 'watch-update') return;
+      this.localWatcher?.onWatchUpdate(event.payload);
+    });
+
     this._started = true;
     this._syncStarted = true;
     logger.info('Engine started');
@@ -140,6 +166,13 @@ export class Engine {
     if (!this._started) return;
     logger.info('Engine stopping');
 
+    if (this._unsubscribeWatchUpdate) {
+      try { this._unsubscribeWatchUpdate(); } catch {}
+      this._unsubscribeWatchUpdate = null;
+    }
+    if (this.localWatcher) {
+      await this.localWatcher.stop();
+    }
     if (this.healthChecker) {
       await this.healthChecker.stop();
     }

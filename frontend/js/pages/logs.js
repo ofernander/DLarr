@@ -1,37 +1,36 @@
 // DLarr — Logs page
 //
-// Tails the SSE log stream. Buffers in memory; filter by level.
+// Shows backend log events. On mount, fetches historical events from
+// /api/logs and renders them; then subscribes to SSE for live updates.
+// The backend LOG_LEVEL env var controls what's emitted at all — UI
+// has no client-side filter.
 
+import { api } from '../api.js';
 import { subscribe } from '../app.js';
 import {
-  el, clear, pageHeader, loading,
+  el, clear, pageHeader,
 } from '../components.js';
 
-const MAX_BUFFER = 1000;
+const MAX_BUFFER   = 1000;
+const RENDER_TAIL  = 500;
+const BACKFILL_N   = 200;
 
 export function render(root) {
   clear(root);
 
   const lines = [];
-  let level = 'info'; // minimum level shown
   let paused = false;
   let unsubscribe = null;
 
   const container = el('div', { class: 'log-container' });
-  container.appendChild(el('div', { class: 'hint', style: { padding: '20px' } }, 'Waiting for log events…'));
+  container.appendChild(el('div', { class: 'hint', style: { padding: '20px' } }, 'Loading…'));
 
-  const levelSel = el('select', {
-    onChange: (e) => { level = e.target.value; renderLines(); },
-  }, [
-    el('option', { value: 'info', selected: true }, 'info+'),
-    el('option', { value: 'warn' }, 'warn+'),
-    el('option', { value: 'error' }, 'error only'),
-  ]);
   const pauseBtn = el('button', {
     class: 'btn btn-sm',
     onClick: () => {
       paused = !paused;
       pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      renderLines();
     },
   }, 'Pause');
   const clearBtn = el('button', {
@@ -42,7 +41,6 @@ export function render(root) {
   root.appendChild(pageHeader('Logs', 'Live event stream'));
   const card = el('div', { class: 'card' });
   card.appendChild(el('div', { class: 'toolbar' }, [
-    levelSel,
     el('div', { class: 'spacer' }),
     pauseBtn,
     clearBtn,
@@ -50,18 +48,14 @@ export function render(root) {
   card.appendChild(container);
   root.appendChild(card);
 
-  const severity = { debug: 0, info: 1, warn: 2, error: 3 };
-
   function renderLines() {
     clear(container);
-    const threshold = severity[level] ?? 1;
-    const filtered = lines.filter(l => (severity[l.level] ?? 0) >= threshold);
-    if (filtered.length === 0) {
+    if (lines.length === 0) {
       container.appendChild(el('div', { class: 'hint', style: { padding: '20px' } },
-        paused ? 'Paused.' : 'Waiting for log events…'));
+        paused ? 'Paused.' : 'No log events yet.'));
       return;
     }
-    for (const line of filtered.slice(-500)) {
+    for (const line of lines.slice(-RENDER_TAIL)) {
       container.appendChild(renderLine(line));
     }
     container.scrollTop = container.scrollHeight;
@@ -76,17 +70,31 @@ export function render(root) {
     ]);
   }
 
-  unsubscribe = subscribe((event) => {
-    if (event.type !== 'log') return;
-    if (paused) return;
-    lines.push({
-      level: event.payload.level,
-      message: event.payload.message,
-      timestamp: event.payload.timestamp ?? event.timestamp,
-    });
-    if (lines.length > MAX_BUFFER) lines.splice(0, lines.length - MAX_BUFFER);
+  // Fetch historical logs, then subscribe to live stream.
+  (async () => {
+    try {
+      const res = await api.listLogs({ limit: BACKFILL_N });
+      for (const entry of res.logs) {
+        lines.push(entry);
+      }
+    } catch (err) {
+      // Non-fatal — still show live stream.
+      console.warn('Log backfill failed:', err.message);
+    }
     renderLines();
-  });
+
+    unsubscribe = subscribe((event) => {
+      if (event.type !== 'log') return;
+      if (paused) return;
+      lines.push({
+        level:     event.payload.level,
+        message:   event.payload.message,
+        timestamp: event.payload.timestamp ?? event.timestamp,
+      });
+      if (lines.length > MAX_BUFFER) lines.splice(0, lines.length - MAX_BUFFER);
+      renderLines();
+    });
+  })();
 
   return () => { if (unsubscribe) unsubscribe(); };
 }

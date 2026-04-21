@@ -44,6 +44,14 @@ import { getDb } from '../db/db.js';
 import { decide as decidePattern } from './matcher.js';
 import { isDestinationReadable } from '../local/scanner.js';
 import { logger } from '../logging/logger.js';
+import { publishFileUpdate } from '../web/events.js';
+
+function publishRow(db, fileId) {
+  try {
+    const row = db.prepare(`SELECT * FROM files WHERE id = ?`).get(fileId);
+    if (row) publishFileUpdate(row);
+  } catch { /* ignore */ }
+}
 
 // States that are user-visible terminal/near-terminal outcomes. Transitions
 // *into* these are logged at INFO. Everything else (seen, queued, downloading)
@@ -75,13 +83,15 @@ export function reconcileWatch(watch, remoteTree, localTree, lftpJobs, patterns,
   const localByName = new Map();
   for (const node of localTree) localByName.set(node.name, node);
 
-  // LFTP jobs are keyed by the localPath the command was issued with.
-  // Since we issue per-watch with localPath = watch.local_path + name,
-  // we can derive the file name from the last path segment.
+  // LFTP jobs are keyed by the REMOTE path basename. The remote path is
+  // preserved verbatim in our LFTP commands and uniquely identifies the
+  // file. localPath does NOT work here because our commands pass parent
+  // directories as LFTP targets (for both pget -o and mirror), so every
+  // job's localPath is the same parent dir, not the target filename.
   const jobsByFileName = new Map();
   for (const job of lftpJobs) {
-    if (!job.localPath) continue;
-    const name = job.localPath.replace(/\/+$/, '').split('/').pop();
+    if (!job.remotePath) continue;
+    const name = job.remotePath.replace(/\/+$/, '').split('/').pop();
     if (name) jobsByFileName.set(name, job);
   }
 
@@ -125,6 +135,7 @@ export function reconcileWatch(watch, remoteTree, localTree, lftpJobs, patterns,
     row.on_remote = 0;
     row.on_local  = localNow;
     row.local_size = localByName.get(name)?.size ?? null;
+    publishRow(db, row.id);
   }
 
   // Pass 3: delete-on-disappear scan.
@@ -169,6 +180,7 @@ export function reconcileWatch(watch, remoteTree, localTree, lftpJobs, patterns,
             `UPDATE files SET on_local = 0 WHERE id = ?`
           ).run(row.id);
           row.on_local = 0;
+          publishRow(db, row.id);
           actions.push({
             type: 'delete_remote',
             fileId: row.id,
@@ -193,6 +205,7 @@ export function reconcileWatch(watch, remoteTree, localTree, lftpJobs, patterns,
     if (jobsByFileName.has(row.remote_path)) continue;
 
     db.prepare(`DELETE FROM files WHERE id = ?`).run(row.id);
+    publishFileUpdate({ id: row.id, deleted: true });
     logger.debug(
       `Purged row ${row.remote_path} (no longer on remote or local, state=${row.state})`,
       { watchId: watch.id, fileId: row.id }
@@ -234,6 +247,8 @@ function reconcileFile({ watch, remote, local, job, row, patterns, now, db, onDo
       new Date((remote.mtime ?? 0) * 1000).toISOString(),
       decision.patternId,
     );
+
+    publishRow(db, info.lastInsertRowid);
 
     if (decision.action === 'queue') {
       return {
@@ -307,6 +322,8 @@ function reconcileFile({ watch, remote, local, job, row, patterns, now, db, onDo
       }
     }
   }
+
+  publishRow(db, row.id);
 
   return null;
 }

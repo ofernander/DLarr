@@ -109,14 +109,16 @@ export default async function filesRoutes(fastify, { engine }) {
       return reply.code(503).send({ error: 'engine_offline' });
     }
 
-    // Find the matching LFTP job (if any) so we can kill or queue-delete it
+    // Find the matching LFTP job (if any) so we can kill or queue-delete it.
+    // Match by remote path: localPath on LFTP jobs is a parent directory
+    // (for both pget -o and mirror) and doesn't uniquely identify the file.
     const watch = loadWatch(file.watch_id);
-    const localPath = absoluteLocalPath(watch, file.remote_path);
+    const remotePath = absoluteRemotePath(watch, file.remote_path);
     let job = null;
     try {
       const raw = await engine.lftp.jobs();
       const { jobs } = parseJobs(raw);
-      job = jobs.find(j => j.localPath === localPath) ?? null;
+      job = jobs.find(j => j.remotePath === remotePath) ?? null;
     } catch (err) {
       req.log.warn(`Stop: failed to query LFTP jobs: ${err.message}`);
     }

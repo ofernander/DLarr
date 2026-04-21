@@ -562,6 +562,7 @@ html[data-theme="dark"] .progress,
 .log-level-info  { color: var(--accent); }
 .log-level-warn  { color: var(--warning); }
 .log-level-error { color: var(--danger); }
+.log-level-debug { color: var(--fg-muted); }
 
 .log-container {
   max-height: 600px;
@@ -569,6 +570,36 @@ html[data-theme="dark"] .progress,
   background: var(--bg);
   border-radius: var(--radius);
   padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--neutral-300) transparent;
+}
+
+.log-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.log-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-container::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: 999px;
+}
+.log-container::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-400);
+}
+
+html[data-theme="dark"] .log-container::-webkit-scrollbar-thumb,
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .log-container::-webkit-scrollbar-thumb {
+    background: var(--neutral-700);
+  }
+  html:not([data-theme="light"]) .log-container::-webkit-scrollbar-thumb:hover {
+    background: var(--neutral-500);
+  }
+}
+html[data-theme="dark"] .log-container {
+  scrollbar-color: var(--neutral-700) transparent;
 }
 
 /* 6. Utilities */

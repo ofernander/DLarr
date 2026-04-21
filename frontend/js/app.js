@@ -85,7 +85,6 @@ const routes = {
   arrs:      () => import('./pages/arrs.js'),
   settings:  () => import('./pages/settings.js'),
   logs:      () => import('./pages/logs.js'),
-  about:     () => import('./pages/about.js'),
 };
 
 let currentCleanup = null;

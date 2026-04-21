@@ -31,7 +31,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_LOCAL_SCRIPT_PATH = resolve(__dirname, '../../../remote/dlarr_scan.py');
 
 const MIN_PYTHON_MAJOR = 3;
-const MIN_PYTHON_MINOR = 6;
+const MIN_PYTHON_MINOR = 5;
 
 /**
  * Thrown when the remote doesn't have a usable python3. Carries a

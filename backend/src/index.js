@@ -15,7 +15,9 @@
 import { parseEnv } from './config/env.js';
 import { initDb, closeDb, getDb } from './db/db.js';
 import { initLogger } from './logging/logger.js';
+import { startRetention } from './logging/retention.js';
 import { reconcileSettings, reconcileArrs } from './config/settings.js';
+import { ensureKey } from './remote/keygen.js';
 import { Engine } from './engine/engine.js';
 import { createServer } from './web/server.js';
 import { resolve } from 'node:path';
@@ -51,6 +53,17 @@ async function boot() {
     `Settings reconciled: ${envSettingKeys.length} env-locked, ` +
     `${Object.keys(settings).length - envSettingKeys.length} default-seeded`
   );
+
+  // Auto-generate SSH key if user hasn't specified one
+  try {
+    ensureKey(dataDir, settings.SSH_KEY_PATH);
+  } catch (err) {
+    logger.error(`SSH key auto-generation failed: ${err.message}`);
+    logger.info('Continuing without auto-generated key; SSH features may not work until resolved');
+  }
+
+  // Start events-table retention loop (depends on settings being populated)
+  startRetention();
 
   // 6. Reconcile arrs
   const arrWarnings = reconcileArrs(arrInstances);

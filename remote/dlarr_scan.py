@@ -11,7 +11,7 @@
 #   - Directory sizes are pre-summed from their children
 #   - mtime is a unix timestamp (integer seconds)
 #   - Stdlib only, no third-party deps
-#   - Python 3.6+ (use os.scandir, f-strings)
+#   - Python 3.5+ (uses os.scandir; avoids f-strings and scandir context manager)
 #
 # Errors go to stderr. Exit code 0 on success, 1 on failure.
 #
@@ -29,7 +29,7 @@ def scan_entry(entry):
         stat = entry.stat(follow_symlinks=False)
     except OSError as err:
         # File/dir may have been deleted between listing and stat. Skip.
-        print(f"dlarr_scan: stat failed for {entry.path}: {err}", file=sys.stderr)
+        print("dlarr_scan: stat failed for {}: {}".format(entry.path, err), file=sys.stderr)
         return None
 
     is_dir = entry.is_dir(follow_symlinks=False)
@@ -54,13 +54,20 @@ def scan_dir(path):
     """Scan a directory, returning a list of child nodes sorted by name."""
     children = []
     try:
-        with os.scandir(path) as it:
+        # os.scandir was not a context manager until 3.6; open and close
+        # manually so this works on 3.5+.
+        it = os.scandir(path)
+        try:
             for entry in it:
                 node = scan_entry(entry)
                 if node is not None:
                     children.append(node)
+        finally:
+            close = getattr(it, "close", None)
+            if close is not None:
+                close()
     except OSError as err:
-        print(f"dlarr_scan: scandir failed for {path}: {err}", file=sys.stderr)
+        print("dlarr_scan: scandir failed for {}: {}".format(path, err), file=sys.stderr)
         return []
 
     children.sort(key=lambda n: n["name"])
@@ -75,11 +82,11 @@ def main():
     root = sys.argv[1]
 
     if not os.path.exists(root):
-        print(f"dlarr_scan: path does not exist: {root}", file=sys.stderr)
+        print("dlarr_scan: path does not exist: {}".format(root), file=sys.stderr)
         sys.exit(1)
 
     if not os.path.isdir(root):
-        print(f"dlarr_scan: path is not a directory: {root}", file=sys.stderr)
+        print("dlarr_scan: path is not a directory: {}".format(root), file=sys.stderr)
         sys.exit(1)
 
     result = scan_dir(root)
