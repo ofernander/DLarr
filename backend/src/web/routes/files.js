@@ -4,7 +4,6 @@
 // POST /api/files/:id/queue             → user-initiated queue (resets retry_count)
 // POST /api/files/:id/stop              → kill running or remove queued job
 // POST /api/files/:id/retry             → reset retry_count + trigger next-tick retry
-// POST /api/files/:id/dismiss           → mark dismissed (hidden from default UI view)
 // POST /api/files/:id/delete-local      → delete local copy
 // POST /api/files/:id/delete-remote     → delete remote copy
 // GET  /api/files/:id/arr-notifications → notification history for this file
@@ -51,9 +50,6 @@ export default async function filesRoutes(fastify, { engine }) {
     if (q.watch_id) { where.push(`watch_id = ?`); params.push(Number(q.watch_id)); }
     if (q.state)    { where.push(`state = ?`);    params.push(String(q.state)); }
     if (q.search)   { where.push(`remote_path LIKE ?`); params.push(`%${q.search}%`); }
-    if (q.include_dismissed !== 'true') {
-      where.push(`state != 'dismissed'`);
-    }
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     const rows = db.prepare(`
@@ -164,22 +160,6 @@ export default async function filesRoutes(fastify, { engine }) {
     if (engine && typeof engine.forceScan === 'function') {
       engine.forceScan(file.watch_id);
     }
-
-    const updated = loadFile(id);
-    publishFileUpdate(updated);
-    return { file: updated };
-  });
-
-  fastify.post('/api/files/:id/dismiss', async (req, reply) => {
-    const id = Number(req.params.id);
-    const file = loadFile(id);
-    if (!file) return reply.code(404).send({ error: 'not_found' });
-
-    getDb().prepare(`
-      UPDATE files
-      SET state = 'dismissed', last_state_change_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(id);
 
     const updated = loadFile(id);
     publishFileUpdate(updated);

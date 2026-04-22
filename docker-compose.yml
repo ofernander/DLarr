@@ -1,0 +1,78 @@
+# DLarr — docker-compose example
+#
+# Copy this to docker-compose.yml and edit to match your setup.
+# All DLARR_* env vars listed are optional; uncomment and set what you need.
+# Anything set here env-locks the corresponding UI field (Pattern B).
+#
+# Watches and patterns are UI-only — not configurable via env.
+
+services:
+  dlarr:
+    build:
+      context: .
+    # Or use a prebuilt image once you publish one:
+    # image: your-registry/dlarr:latest
+    container_name: dlarr
+    restart: unless-stopped
+    ports:
+      - "8800:8800"
+    volumes:
+      - ./data:/config
+      # Mount the destination filesystem you want files synced to.
+      # Adjust to match your media layout. Paths on the host must match
+      # the watch's configured local_path.
+      - /path/on/host/downloads:/downloads
+    environment:
+      # TZ controls the container's timezone for log timestamps.
+      # Also serves as a placeholder so compose sees a valid list
+      # even when every DLARR_* line below is commented out.
+      - TZ=UTC
+
+      # --- Required for sync to actually run ---
+      # - DLARR_SSH_HOST=seedbox.example.com
+      # - DLARR_SSH_PORT=22
+      # - DLARR_SSH_USER=your_user
+
+      # Pick one auth mode:
+      # - DLARR_SSH_USE_KEY=true
+      # - DLARR_SSH_KEY_PATH=/path/to/custom/key   # mount your key into /config
+      # --- or ---
+      # - DLARR_SSH_PASSWORD=your_password
+
+      # --- Optional: logging & web ---
+      # - DLARR_LOG_LEVEL=info            # debug | info | warn | error
+      # - DLARR_WEB_PORT=8800
+
+      # --- Optional: LFTP tuning ---
+      # - DLARR_LFTP_NUM_PARALLEL_JOBS=2
+      # - DLARR_LFTP_NUM_PARALLEL_FILES_PER_JOB=4
+      # - DLARR_LFTP_NUM_CONNECTIONS_PER_FILE=4
+      # - DLARR_LFTP_NUM_CONNECTIONS_PER_DIR_FILE=4
+      # - DLARR_LFTP_MAX_TOTAL_CONNECTIONS=16
+      # - DLARR_LFTP_USE_TEMP_FILE=true
+      # - DLARR_LFTP_RATE_LIMIT=0         # 0 = unlimited, or e.g. 10M
+
+      # --- Optional: scanner & retries ---
+      # - DLARR_DEFAULT_SCAN_INTERVAL_SECS=30
+      # - DLARR_REMOTE_SCAN_SCRIPT_PATH=/tmp/dlarr_scan.py
+      # - DLARR_MAX_RETRIES=5
+
+      # --- Optional: arr instances (numbered, starting at 1, contiguous) ---
+      # - DLARR_RADARR_1_NAME=radarr-main
+      # - DLARR_RADARR_1_URL=http://radarr:7878
+      # - DLARR_RADARR_1_API_KEY=<api key>
+      # - DLARR_RADARR_1_DIR=/movies       # path Radarr should rescan (its view)
+
+      # - DLARR_SONARR_1_NAME=sonarr-main
+      # - DLARR_SONARR_1_URL=http://sonarr:8989
+      # - DLARR_SONARR_1_API_KEY=<api key>
+      # - DLARR_SONARR_1_DIR=/tv
+
+      # - DLARR_LIDARR_1_NAME=lidarr-main
+      # - DLARR_LIDARR_1_URL=http://lidarr:8686
+      # - DLARR_LIDARR_1_API_KEY=<api key>
+      # - DLARR_LIDARR_1_DIR=/music
+
+      # --- Optional: arr notification tuning ---
+      # - DLARR_ARR_HEALTH_CHECK_INTERVAL_SECS=120
+      # - DLARR_ARR_NOTIFY_MAX_RETRIES=3

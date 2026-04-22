@@ -125,8 +125,9 @@ code, pre { font-family: var(--font-mono); font-size: 13px; }
 }
 .brand:hover { color: var(--accent); }
 .brand-mark {
-  color: var(--accent);
-  font-size: 20px;
+  height: 28px;
+  width: auto;
+  display: block;
 }
 .nav-items {
   flex: 1;
@@ -389,7 +390,6 @@ html[data-theme="dark"] .chip,
 .chip-downloaded  { background: #d1fae5; color: #065f46; }
 .chip-ignored     { background: var(--neutral-200); color: var(--neutral-500); }
 .chip-error       { background: #fee2e2; color: #991b1b; }
-.chip-dismissed   { background: var(--neutral-200); color: var(--neutral-500); }
 /* Legacy states — kept in schema CHECK for back-compat but no longer written */
 .chip-deleted_local  { background: #fef3c7; color: #92400e; }
 .chip-deleted_remote { background: #fef3c7; color: #92400e; }
@@ -613,6 +613,22 @@ html[data-theme="dark"] .log-container {
 .nowrap { white-space: nowrap; }
 .mono { font-family: var(--font-mono); font-size: 13px; }
 .hidden { display: none !important; }
+
+/* App footer — version + repo link, one line centered below all cards */
+.app-footer {
+  max-width: 1100px;
+  margin: -40px auto 16px;
+  padding: 0 20px;
+  text-align: center;
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+.app-footer a {
+  color: var(--fg-muted);
+}
+.app-footer a:hover {
+  color: var(--accent);
+}
 
 /* 7. Responsive */
 @media (max-width: 800px) {

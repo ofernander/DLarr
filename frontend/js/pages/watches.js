@@ -1,12 +1,19 @@
 // DLarr — Watches page
 //
-// List + create + edit + delete watches. Also manages arr-notification
-// mappings per watch.
+// Merged page: list + create + edit + delete watches, manage arr-notification
+// mappings per watch, AND manage patterns (both global and per-watch).
+//
+// Layout:
+//   [Global patterns card]     ← top: list + create + delete globals
+//   [Watches list]             ← below: table of watches with Edit/Delete/Scan
+//   [Watch editor (on demand)] ← opens when creating or editing a watch;
+//                                includes "Patterns for this watch" section
+//                                at the bottom (only active on existing watches).
 
 import { api } from '../api.js';
 import { subscribe } from '../app.js';
 import {
-  el, clear, toast, confirmModal, pageHeader, empty, loading, formatRelative,
+  el, clear, chip, toast, confirmModal, pageHeader, empty, loading,
 } from '../components.js';
 
 export function render(root) {
@@ -14,9 +21,11 @@ export function render(root) {
 
   let watches = [];
   let arrs = [];
-  let editing = null; // null | {...} (null => creating new)
+  let globalPatterns = [];
+  let editing = null; // null | {...}
   let unsubscribe = null;
 
+  const globalPatternsHost = el('div');
   const listHost = el('div');
 
   const newBtn = el('button', {
@@ -29,21 +38,183 @@ export function render(root) {
     'Directories to sync from your remote server',
     [newBtn]
   ));
-
+  root.appendChild(globalPatternsHost);
   root.appendChild(listHost);
+
+  globalPatternsHost.appendChild(loading());
   listHost.appendChild(loading());
 
   async function load() {
     try {
-      const [wRes, aRes] = await Promise.all([api.listWatches(), api.listArrs()]);
+      const [wRes, aRes, pRes] = await Promise.all([
+        api.listWatches(),
+        api.listArrs(),
+        api.listPatterns({ scope: 'global' }),
+      ]);
       watches = wRes.watches;
       arrs = aRes.arrs;
-      renderList();
+      globalPatterns = pRes.patterns;
+      renderGlobalPatterns();
+      if (!editing) renderList();
     } catch (err) {
+      clear(globalPatternsHost);
       clear(listHost);
       listHost.appendChild(empty('Failed to load', err.message));
     }
   }
+
+  // -----------------------------------------------------------
+  // Global patterns
+  // -----------------------------------------------------------
+
+  function renderGlobalPatterns() {
+    clear(globalPatternsHost);
+    const card = el('div', { class: 'card' });
+    card.appendChild(el('h2', { class: 'card-title' }, 'Global patterns'));
+    card.appendChild(el('p', { class: 'hint', style: { marginTop: '-8px', marginBottom: '12px' } },
+      'Apply to every watch. Per-watch patterns are managed inside each watch.'));
+
+    card.appendChild(renderPatternCreateForm(null));
+    card.appendChild(renderPatternList(globalPatterns));
+    globalPatternsHost.appendChild(card);
+  }
+
+  /**
+   * Create-pattern form. If watchId is null → global pattern. Otherwise →
+   * pattern for that specific watch.
+   */
+  function renderPatternCreateForm(watchId) {
+    const state = { kind: 'include', pattern: '', action: 'ignore' };
+
+    const kindSel = el('select', {
+      onChange: e => { state.kind = e.target.value; renderActionField(); },
+    }, [
+      el('option', { value: 'include' }, 'Include'),
+      el('option', { value: 'exclude' }, 'Exclude'),
+    ]);
+
+    const actionSel = el('select', {
+      onChange: e => { state.action = e.target.value; },
+    }, [
+      el('option', { value: 'ignore' }, 'ignore'),
+      el('option', { value: 'delete_remote' }, 'delete_remote'),
+    ]);
+
+    const patternInput = el('input', {
+      type: 'text', placeholder: '*.mkv or fragment',
+      onInput: e => { state.pattern = e.target.value; },
+    });
+
+    const actionCell = el('div');
+    function renderActionField() {
+      clear(actionCell);
+      if (state.kind === 'exclude') actionCell.appendChild(actionSel);
+      else actionCell.appendChild(el('span', { class: 'hint' }, 'n/a for includes'));
+    }
+    renderActionField();
+
+    const addBtn = el('button', {
+      class: 'btn btn-primary btn-sm',
+      onClick: async () => {
+        if (!state.pattern.trim()) { toast('Pattern cannot be empty', 'error'); return; }
+        try {
+          await api.createPattern({
+            watch_id: watchId,
+            kind: state.kind,
+            pattern: state.pattern.trim(),
+            action: state.kind === 'exclude' ? state.action : null,
+          });
+          toast('Pattern added', 'success');
+          patternInput.value = '';
+          state.pattern = '';
+          if (watchId == null) {
+            const pRes = await api.listPatterns({ scope: 'global' });
+            globalPatterns = pRes.patterns;
+            renderGlobalPatterns();
+          } else {
+            // Re-render the editor's pattern list
+            renderWatchPatternsInto(editing._watchPatternsHost, editing.id);
+          }
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      },
+    }, 'Add');
+
+    return el('div', { class: 'form-grid', style: { marginBottom: '12px' } }, [
+      el('label', {}, 'Kind'), kindSel,
+      el('label', {}, 'Pattern'), patternInput,
+      el('label', {}, 'Action'), actionCell,
+      el('label', {}, ''), el('div', { class: 'row flex-end' }, [addBtn]),
+    ]);
+  }
+
+  function renderPatternList(list) {
+    if (list.length === 0) {
+      return el('p', { class: 'muted', style: { margin: 0 } }, 'No patterns.');
+    }
+    const tbody = el('tbody');
+    const table = el('table', { class: 'table' }, [
+      el('thead', {}, el('tr', {}, [
+        el('th', {}, 'Kind'),
+        el('th', {}, 'Pattern'),
+        el('th', {}, 'Action'),
+        el('th', {}, ''),
+      ])),
+      tbody,
+    ]);
+    for (const p of list) {
+      tbody.appendChild(el('tr', {}, [
+        el('td', {}, chip(p.kind, p.kind === 'include' ? 'downloaded' : 'error')),
+        el('td', { class: 'mono' }, p.pattern),
+        el('td', {}, p.action ?? '—'),
+        el('td', { class: 'row flex-end' }, [
+          el('button', {
+            class: 'btn btn-sm btn-ghost',
+            onClick: async () => {
+              const ok = await confirmModal({
+                title: 'Delete pattern?',
+                body: `${p.kind}: ${p.pattern}`,
+                confirmLabel: 'Delete',
+                danger: true,
+              });
+              if (!ok) return;
+              try {
+                await api.deletePattern(p.id);
+                toast('Deleted', 'success');
+                if (p.watch_id == null) {
+                  const pRes = await api.listPatterns({ scope: 'global' });
+                  globalPatterns = pRes.patterns;
+                  renderGlobalPatterns();
+                } else if (editing) {
+                  renderWatchPatternsInto(editing._watchPatternsHost, editing.id);
+                }
+              } catch (err) { toast(err.message, 'error'); }
+            },
+          }, 'Delete'),
+        ]),
+      ]));
+    }
+    return table;
+  }
+
+  /**
+   * Fetch this watch's patterns and render into the given host element.
+   */
+  async function renderWatchPatternsInto(host, watchId) {
+    if (!host) return;
+    clear(host);
+    try {
+      const pRes = await api.listPatterns({ watch_id: watchId });
+      host.appendChild(renderPatternList(pRes.patterns));
+    } catch (err) {
+      host.appendChild(empty('Failed to load patterns', err.message));
+    }
+  }
+
+  // -----------------------------------------------------------
+  // Watches list
+  // -----------------------------------------------------------
 
   function renderList() {
     clear(listHost);
@@ -116,6 +287,10 @@ export function render(root) {
       toast(err.message, 'error');
     }
   }
+
+  // -----------------------------------------------------------
+  // Watch editor
+  // -----------------------------------------------------------
 
   function openEditor(w) {
     editing = w ? { ...w } : null;
@@ -220,6 +395,25 @@ export function render(root) {
     }, 'Cancel');
 
     card.appendChild(el('div', { class: 'row flex-end', style: { marginTop: '20px' } }, [cancelBtn, submitBtn]));
+
+    // -------- Per-watch patterns section --------
+    const patternsSection = el('div', { style: { marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' } });
+    patternsSection.appendChild(el('h3', { class: 'card-title', style: { fontSize: '15px' } }, 'Patterns for this watch'));
+    patternsSection.appendChild(el('p', { class: 'hint', style: { marginTop: '-4px', marginBottom: '12px' } },
+      'Apply only to this watch. Combined with global patterns at scan time.'));
+
+    if (isEdit) {
+      patternsSection.appendChild(renderPatternCreateForm(editing.id));
+      const listHost2 = el('div');
+      patternsSection.appendChild(listHost2);
+      editing._watchPatternsHost = listHost2;
+      renderWatchPatternsInto(listHost2, editing.id);
+    } else {
+      patternsSection.appendChild(el('p', { class: 'muted' },
+        'Save the watch first, then add patterns specific to it.'));
+    }
+    card.appendChild(patternsSection);
+
     return card;
   }
 

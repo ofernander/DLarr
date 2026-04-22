@@ -81,7 +81,6 @@ function setSyncDot(status, label) {
 const routes = {
   dashboard: () => import('./pages/dashboard.js'),
   watches:   () => import('./pages/watches.js'),
-  patterns:  () => import('./pages/patterns.js'),
   arrs:      () => import('./pages/arrs.js'),
   settings:  () => import('./pages/settings.js'),
   logs:      () => import('./pages/logs.js'),
@@ -158,6 +157,30 @@ async function refreshStatus() {
 
 // --- Boot --------------------------------------------------------
 
+async function renderFooter() {
+  const host = document.getElementById('app-footer');
+  if (!host) return;
+  try {
+    const { version, repository } = await api.getVersion();
+    const v = document.createElement('span');
+    v.textContent = `DLarr v${version}`;
+    host.appendChild(v);
+    if (repository) {
+      // package.json repository.url can be a git+https://... URL; normalize
+      const url = String(repository).replace(/^git\+/, '').replace(/\.git$/, '');
+      host.appendChild(document.createTextNode(' · '));
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = 'GitHub';
+      host.appendChild(a);
+    }
+  } catch {
+    // leave footer empty if endpoint fails
+  }
+}
+
 function init() {
   // Hash router
   window.addEventListener('hashchange', render);
@@ -181,6 +204,10 @@ function init() {
 
   // First render
   render();
+
+  // Populate footer with version + repo link. One fetch at boot; no
+  // live updates needed (version only changes on server restart).
+  renderFooter().catch(() => { /* non-fatal */ });
 }
 
 // Fire on DOMContentLoaded or immediately if already parsed

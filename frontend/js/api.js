@@ -87,7 +87,6 @@ export const api = {
   fileQueue:        (id) => POST(`/api/files/${id}/queue`),
   fileStop:         (id) => POST(`/api/files/${id}/stop`),
   fileRetry:        (id) => POST(`/api/files/${id}/retry`),
-  fileDismiss:      (id) => POST(`/api/files/${id}/dismiss`),
   fileDeleteLocal:  (id) => POST(`/api/files/${id}/delete-local`),
   fileDeleteRemote: (id) => POST(`/api/files/${id}/delete-remote`),
   fileArrHistory:   (id) => GET(`/api/files/${id}/arr-notifications`),
@@ -97,4 +96,7 @@ export const api = {
     const q = new URLSearchParams(params).toString();
     return GET(`/api/logs${q ? '?' + q : ''}`);
   },
+
+  // Version
+  getVersion:       () => GET('/api/version'),
 };

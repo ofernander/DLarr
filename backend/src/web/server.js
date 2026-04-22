@@ -31,6 +31,7 @@ import filesRoutes    from './routes/files.js';
 import commandsRoutes from './routes/commands.js';
 import streamRoutes   from './routes/stream.js';
 import logsRoutes     from './routes/logs.js';
+import versionRoutes  from './routes/version.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIR = resolve(__dirname, '../../../frontend');
@@ -87,6 +88,7 @@ export async function createServer({ port, engine }) {
   await fastify.register(commandsRoutes, { engine, bus });
   await fastify.register(streamRoutes);
   await fastify.register(logsRoutes);
+  await fastify.register(versionRoutes);
 
   // ---------- Static frontend ----------
   if (existsSync(FRONTEND_DIR)) {

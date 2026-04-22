@@ -334,7 +334,7 @@ function reconcileFile({ watch, remote, local, job, row, patterns, now, db, onDo
  */
 function deriveState(row, { remote, local, job }) {
   // Terminal / user-driven states we don't auto-flip from
-  const sticky = ['ignored', 'dismissed', 'error'];
+  const sticky = ['ignored', 'error'];
   if (sticky.includes(row.state)) return null;
 
   // LFTP says it's transferring
@@ -345,14 +345,32 @@ function deriveState(row, { remote, local, job }) {
     return 'queued';
   }
 
-  // No LFTP activity — determine from sizes
-  if (local && remote.size != null && local.size >= remote.size) {
+  // Size-based "already complete" detection. ONLY fires for files that
+  // are NOT currently in our queue→downloading workflow. A file in state
+  // 'seen' (discovered but not yet queued by us) with matching sizes
+  // means the user already has a complete copy locally — no transfer
+  // needed. We use strict equality because directories can have inflated
+  // local.size mid-transfer due to LFTP's *.lftp temp files counting
+  // toward the sum; only exact match is safe. We also only promote from
+  // `seen` — never from `downloading` or `queued`, which must be cleared
+  // by LFTP actually finishing (handled by the job-gone branch below).
+  if (row.state === 'seen' && local && remote.size != null && local.size === remote.size) {
     return 'downloaded';
   }
 
-  // If we were 'downloading' but LFTP no longer has a job for it, treat as
-  // interrupted — fall back to 'seen' so retry logic can re-queue.
+  // LFTP no longer has a job for us. Two cases:
+  //   - We were 'downloading': LFTP finished (successfully or not).
+  //     If local size matches remote size exactly → downloaded.
+  //     Otherwise → interrupted; fall back to 'seen' so retry can re-queue.
+  //   - We were 'queued': LFTP dropped the job before starting (rare).
+  //     Fall back to 'seen' so retry can re-queue.
   if (row.state === 'downloading' && !job) {
+    if (local && remote.size != null && local.size === remote.size) {
+      return 'downloaded';
+    }
+    return 'seen';
+  }
+  if (row.state === 'queued' && !job) {
     return 'seen';
   }
 

@@ -6,19 +6,18 @@
   <meta name="color-scheme" content="light dark" />
   <title>DLarr</title>
   <link rel="stylesheet" href="/css/app.css" />
-  <link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/assets/icons/favicon.png" type="image/png" />
 </head>
 <body>
   <header id="top-nav" class="top-nav">
     <div class="top-nav-inner">
       <a href="#/dashboard" class="brand">
-        <span class="brand-mark">◆</span>
+        <img class="brand-mark" src="/assets/icons/icon.png" alt="" />
         <span class="brand-name">DLarr</span>
       </a>
       <nav class="nav-items" aria-label="Primary">
         <a href="#/dashboard" data-route="dashboard">Dashboard</a>
         <a href="#/watches"   data-route="watches">Watches</a>
-        <a href="#/patterns"  data-route="patterns">Patterns</a>
         <a href="#/arrs"      data-route="arrs">Arrs</a>
         <a href="#/settings"  data-route="settings">Settings</a>
         <a href="#/logs"      data-route="logs">Logs</a>
@@ -37,6 +36,8 @@
       <p>Loading…</p>
     </section>
   </main>
+
+  <footer class="app-footer" id="app-footer" aria-label="Version"></footer>
 
   <div id="toast-host" class="toast-host" aria-live="polite"></div>
   <div id="modal-host" class="modal-host" aria-hidden="true"></div>

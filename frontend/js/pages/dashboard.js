@@ -1,7 +1,7 @@
 // DLarr — Dashboard page
 //
 // Primary file list with live updates over SSE. Filters: search, state, watch.
-// Row actions: queue, stop, retry, dismiss, delete local, delete remote.
+// Row actions: queue, stop, retry, delete local, delete remote.
 //
 // Presence chip: each row shows a two-pill indicator (Remote / Local) derived
 // from the file's on_remote and on_local columns. Filled = present, outlined
@@ -140,8 +140,8 @@ export function render(root) {
       class: 'presence',
       title: `Remote: ${onRemote ? 'yes' : 'no'} · Local: ${onLocal ? 'yes' : 'no'}`,
     }, [
-      el('span', { class: `presence-pill ${onRemote ? 'on' : 'off'}` }, 'R'),
-      el('span', { class: `presence-pill ${onLocal  ? 'on' : 'off'}` }, 'L'),
+      el('span', { class: `presence-pill ${onRemote ? 'on' : 'off'}` }, 'Remote'),
+      el('span', { class: `presence-pill ${onLocal  ? 'on' : 'off'}` }, 'Local'),
     ]);
   }
 
@@ -183,14 +183,6 @@ export function render(root) {
     if (f.state === 'error' || (f.retry_count > 0 && f.state === 'seen')) {
       add('Retry', () => runAction(f.id, 'fileRetry', 'Retry scheduled'));
     }
-    add('Dismiss', async () => {
-      const ok = await confirmModal({
-        title: 'Dismiss file?',
-        body: 'Hide this file from the default view. It stays tracked and you can still act on it from the dismissed filter.',
-        confirmLabel: 'Dismiss',
-      });
-      if (ok) runAction(f.id, 'fileDismiss', 'Dismissed');
-    });
 
     // Delete buttons gated on presence, not state
     if (onLocal) {

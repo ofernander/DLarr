@@ -44,10 +44,6 @@ class EventBus {
       timestamp: new Date().toISOString(),
       payload,
     };
-    // DIAGNOSTIC (temporary): confirm events are reaching the bus at all.
-    // Writes to stderr so it bypasses the logger entirely. Remove once
-    // SSE delivery is verified.
-    process.stderr.write(`[bus] publish type=${type} subs=${this._ee.listenerCount('event')}\n`);
     this._ee.emit('event', event);
   }
 

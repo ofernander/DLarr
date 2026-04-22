@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS files (
   state                      TEXT    NOT NULL DEFAULT 'seen' CHECK (state IN (
                                  'seen', 'queued', 'downloading', 'downloaded',
                                  'ignored', 'deleted_local', 'deleted_remote',
-                                 'error', 'dismissed'
+                                 'error'
                              )),
   remote_modified_at         TEXT,
   first_seen_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
