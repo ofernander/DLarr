@@ -74,23 +74,26 @@ export function render(root) {
 
   async function load() {
     try {
-      const res = await api.listSettings();
+      const [res, keyRes] = await Promise.all([
+        api.listSettings(),
+        api.getSshPublicKey(),
+      ]);
       byKey = new Map(res.settings.map(s => [s.key, s]));
-      renderGroups();
+      renderGroups(keyRes.publicKey ?? null);
     } catch (err) {
       clear(host);
       host.appendChild(empty('Failed to load', err.message));
     }
   }
 
-  function renderGroups() {
+  function renderGroups(publicKey) {
     clear(host);
     for (const g of GROUPS) {
-      host.appendChild(renderGroup(g));
+      host.appendChild(renderGroup(g, publicKey));
     }
   }
 
-  function renderGroup(g) {
+  function renderGroup(g, publicKey) {
     const card = el('div', { class: 'card' });
     card.appendChild(el('h2', { class: 'card-title' }, g.title));
     const grid = el('div', { class: 'form-grid' });
@@ -99,15 +102,22 @@ export function render(root) {
       if (!meta) continue;
       grid.appendChild(renderRow(key, meta));
     }
+    if (g.title === 'Remote server (SSH)' && publicKey) {
+      const label = el('label', {}, 'SSH_PUBLIC_KEY');
+      const input = el('input', {
+        type: 'text',
+        value: publicKey,
+        readOnly: true,
+        style: { cursor: 'text' },
+      });
+      grid.appendChild(el('div', { style: { display: 'contents' } }, [label, input]));
+    }
     card.appendChild(grid);
     return card;
   }
 
   function renderRow(key, meta) {
-    const label = el('label', {}, [
-      key,
-      meta.envLocked ? el('span', { class: 'chip', style: { marginLeft: '8px' } }, '🔒 env') : null,
-    ]);
+    const label = el('label', {}, [key]);
 
     const input = renderInput(key, meta);
     return el('div', { style: { display: 'contents' } }, [label, input]);

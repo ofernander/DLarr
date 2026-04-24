@@ -6,8 +6,10 @@
 // SSH password is never returned to the UI (response field appears but value
 // is always masked). The UI treats this as a write-only field.
 
-import { getAllWithMeta, set as setSetting } from '../../config/settings.js';
+import { readFileSync, existsSync } from 'node:fs';
+import { getAllWithMeta, set as setSetting, get as getSetting } from '../../config/settings.js';
 import { publishSettingsUpdate } from '../events.js';
+import { defaultKeyPath } from '../../remote/keygen.js';
 
 const SECRET_KEYS = new Set(['SSH_PASSWORD']);
 
@@ -48,5 +50,14 @@ export default async function settingsRoutes(fastify) {
     publishSettingsUpdate({ key });
 
     return { ok: true, key };
+  });
+
+  fastify.get('/api/ssh-public-key', async () => {
+    const userKeyPath = getSetting('SSH_KEY_PATH');
+    if (userKeyPath) return { publicKey: null };
+    const dataDir = getSetting('DATA_DIR');
+    const pubPath = defaultKeyPath(dataDir) + '.pub';
+    if (!existsSync(pubPath)) return { publicKey: null };
+    return { publicKey: readFileSync(pubPath, 'utf8').trim() };
   });
 }

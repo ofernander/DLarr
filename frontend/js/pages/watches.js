@@ -221,8 +221,7 @@ export function render(root) {
     if (watches.length === 0) {
       listHost.appendChild(empty(
         'No watches yet',
-        'Add a directory on your remote server to start syncing.',
-        el('button', { class: 'btn btn-primary', onClick: () => openEditor(null) }, '+ New watch')
+        'Add a directory on your remote server to start syncing.'
       ));
       return;
     }

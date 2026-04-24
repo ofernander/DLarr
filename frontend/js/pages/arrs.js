@@ -44,8 +44,7 @@ export function render(root) {
     if (arrs.length === 0) {
       listHost.appendChild(empty(
         'No arrs configured',
-        'Add a Sonarr/Radarr/Lidarr instance to receive rescan notifications.',
-        el('button', { class: 'btn btn-primary', onClick: () => openEditor(null) }, '+ New arr')
+        'Add a Sonarr/Radarr/Lidarr instance to receive rescan notifications.'
       ));
       return;
     }
@@ -70,7 +69,6 @@ export function render(root) {
         el('td', {}, el('div', {}, [
           el('div', {}, [
             a.name,
-            a.env_locked ? el('span', { class: 'chip', style: { marginLeft: '8px' } }, '🔒 env') : null,
           ]),
           a.last_status_msg ? el('div', { class: 'hint' }, a.last_status_msg) : null,
         ])),

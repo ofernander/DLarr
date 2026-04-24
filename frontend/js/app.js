@@ -168,7 +168,7 @@ async function renderFooter() {
     if (repository) {
       // package.json repository.url can be a git+https://... URL; normalize
       const url = String(repository).replace(/^git\+/, '').replace(/\.git$/, '');
-      host.appendChild(document.createTextNode(' · '));
+      host.appendChild(document.createTextNode(' - '));
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';

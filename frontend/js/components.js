@@ -142,13 +142,12 @@ export function confirmModal({ title, body, confirmLabel = 'Confirm', danger = f
 // --- Page header --------------------------------------------------
 
 export function pageHeader(title, subtitle, actions = []) {
-  return el('header', { class: 'page-header' }, [
-    el('div', {}, [
-      el('h1', { class: 'page-title' }, title),
-      subtitle ? el('p', { class: 'page-subtitle' }, subtitle) : null,
-    ]),
-    actions.length ? el('div', { class: 'row' }, actions) : null,
-  ]);
+  if (!actions.length) return el('div', {});
+  const btn = actions[0];
+  btn.style.width = '100%';
+  btn.style.justifyContent = 'center';
+  btn.style.marginBottom = '20px';
+  return el('div', {}, [btn]);
 }
 
 // --- Empty state --------------------------------------------------

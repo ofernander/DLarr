@@ -113,6 +113,7 @@ code, pre { font-family: var(--font-mono); font-size: 13px; }
   display: flex;
   align-items: center;
   gap: 24px;
+  justify-content: center;
 }
 .brand {
   display: flex;
@@ -130,10 +131,8 @@ code, pre { font-family: var(--font-mono); font-size: 13px; }
   display: block;
 }
 .nav-items {
-  flex: 1;
   display: flex;
   gap: 8px;
-  justify-content: center;
 }
 .nav-items a {
   padding: 8px 14px;

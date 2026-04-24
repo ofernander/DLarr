@@ -99,4 +99,5 @@ export const api = {
 
   // Version
   getVersion:       () => GET('/api/version'),
+  getSshPublicKey:  () => GET('/api/ssh-public-key'),
 };
