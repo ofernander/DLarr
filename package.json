@@ -1,6 +1,6 @@
 {
   "name": "dlarr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast LFTP-driven one-way file sync with arr integration",
   "main": "backend/src/index.js",
   "type": "module",

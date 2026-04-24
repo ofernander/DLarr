@@ -10,6 +10,7 @@ services:
   dlarr:
     build:
       context: .
+    image: dlarr
     # Or use a prebuilt image once you publish one:
     # image: your-registry/dlarr:latest
     container_name: dlarr
