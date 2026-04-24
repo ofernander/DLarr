@@ -95,15 +95,9 @@ export class RemoteScanner {
 
     let res;
     try {
-      // `python3 --version` prints like "Python 3.11.2". Historically it
-      // printed to stderr on very old versions; merging 2>&1 handles both.
       res = await exec(this.sshConfig, 'python3 --version 2>&1');
     } catch (err) {
-      throw new PythonCheckError(
-        `Remote python3 check failed: ${err.message}. ` +
-        `DLarr requires python3 ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+ on the remote. ` +
-        `Install it (e.g. "apt install python3" / "yum install python3") and retry.`
-      );
+      throw new Error(`SSH connection failed: ${err.message}`);
     }
 
     if (res.code !== 0) {
@@ -200,13 +194,24 @@ export class RemoteScanner {
     await this.ensureScriptInstalled();
 
     const cmd = `python3 ${shellQuote(this.scriptRemotePath)} ${shellQuote(remotePath)}`;
-    const res = await exec(this.sshConfig, cmd);
+    let res = await exec(this.sshConfig, cmd);
 
     if (res.code !== 0) {
       const stderr = res.stderr.toString('utf-8').trim();
-      throw new Error(
-        `Remote scan exited with code ${res.code}${stderr ? `: ${stderr}` : ''}`
-      );
+      const looksLikeMissing = stderr.includes('No such file or directory') ||
+                               stderr.includes("can't open file");
+      if (looksLikeMissing) {
+        logger.warn('Remote scan script missing; reinstalling and retrying');
+        this.invalidateScriptCache();
+        await this.ensureScriptInstalled();
+        res = await exec(this.sshConfig, cmd);
+      }
+      if (res.code !== 0) {
+        const stderr2 = res.stderr.toString('utf-8').trim();
+        throw new Error(
+          `Remote scan exited with code ${res.code}${stderr2 ? `: ${stderr2}` : ''}`
+        );
+      }
     }
 
     const stdout = res.stdout.toString('utf-8').trim();
