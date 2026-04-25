@@ -1,8 +1,6 @@
 # DLarr -> DownLoadarr
 
-LFTP based *arr integrated seedbox download client inspired by the infamous SeedSync but a fresh re-write for modern standards. 
-
-
+LFTP based seedbox focused download client inspired by the infamous SeedSync re-written with *arr support.
 
 ## docker-compose.yml
 
