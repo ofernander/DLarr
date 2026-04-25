@@ -102,12 +102,12 @@ Replace `RADARR` with `SONARR` or `LIDARR` for those types. Example for two Sona
 DLARR_SONARR_1_NAME=sonarr-main
 DLARR_SONARR_1_URL=http://sonarr:8989
 DLARR_SONARR_1_API_KEY=abc123
-DLARR_SONARR_1_DIR=/tv
+DLARR_SONARR_1_DIR=/shows
 
-DLARR_SONARR_2_NAME=sonarr-anime
-DLARR_SONARR_2_URL=http://sonarr-anime:8989
+DLARR_SONARR_2_NAME=sonarr-4K
+DLARR_SONARR_2_URL=http://sonarr-4K:8989
 DLARR_SONARR_2_API_KEY=def456
-DLARR_SONARR_2_DIR=/anime
+DLARR_SONARR_2_DIR=/shows-4K
 ```
 
 
