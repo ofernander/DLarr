@@ -1,7 +1,7 @@
 {
   "name": "dlarr",
   "version": "0.1.1",
-  "description": "Fast LFTP-driven one-way file sync with arr integration",
+  "description": "LFTP based *arr integrated seedbox download client inspired by the infamous SeedSync but a fresh re-write for modern standards.",
   "main": "backend/src/index.js",
   "type": "module",
   "engines": {

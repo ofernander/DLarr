@@ -16,13 +16,13 @@
 
 /* 1. Design tokens */
 :root {
-  --teal-50:  #ecfeff;
-  --teal-100: #cffafe;
-  --teal-300: #67e8f9;
-  --teal-500: #06b6d4;
-  --teal-600: #0891b2;
-  --teal-700: #0e7490;
-  --teal-800: #155e75;
+  --teal-50:  #f0fdf4;
+  --teal-100: #dcfce7;
+  --teal-300: #86efac;
+  --teal-500: #22c55e;
+  --teal-600: #16a34a;
+  --teal-700: #15803d;
+  --teal-800: #166534;
 
   --neutral-0:   #ffffff;
   --neutral-50:  #fafafa;
@@ -76,7 +76,7 @@ html[data-theme="dark"],
     --border-hover: #4a4a52;
     --accent:       var(--teal-300);
     --accent-hover: var(--teal-100);
-    --accent-bg:    rgba(103, 232, 249, 0.08);
+    --accent-bg:    rgba(134, 239, 172, 0.08);
   }
 }
 
@@ -152,8 +152,8 @@ html[data-theme="dark"] .nav-items a:hover,
   html:not([data-theme="light"]) .nav-items a:hover { background: var(--neutral-800); }
 }
 .nav-items a.active {
-  color: var(--accent);
-  background: var(--accent-bg);
+  color: var(--fg);
+  background: var(--neutral-100);
 }
 .nav-status {
   display: flex;
