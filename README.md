@@ -2,6 +2,8 @@
 
 LFTP based seedbox focused download client inspired by the infamous SeedSync re-written with *arr support.
 
+![DLarr Screenshot](docs/images/screenshot.png)
+
 ## docker-compose.yml
 
 ```yaml
