@@ -1,6 +1,6 @@
 {
   "name": "dlarr",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "LFTP based *arr integrated seedbox download client inspired by the infamous SeedSync but a fresh re-write for modern standards.",
   "main": "backend/src/index.js",
   "type": "module",
